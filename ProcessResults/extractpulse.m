@@ -1,8 +1,10 @@
 function [ selection, fit, t ] = extractpulse( signal )
+    % function to extract a pulse from the datatrace for visualization
+
     OUTPUTmonitor=signal;
-    time_span=2000*1e-12;
+    time_span=2000*1e-12; % should be modified
     n_o_timesteps=length(OUTPUTmonitor);
-    dt=20e-15;
+    dt=20e-15; % should be modified
     OUTPUTmonitor_selection=OUTPUTmonitor(n_o_timesteps-round(time_span/dt):n_o_timesteps);
     [peaks,peakpositions]=findpeaks(abs(OUTPUTmonitor_selection).^2, 'MinPeakHeight',max(abs(OUTPUTmonitor_selection).^2)/10);
 
@@ -23,10 +25,6 @@ function [ selection, fit, t ] = extractpulse( signal )
         end
     end
 
-    %nonlin0=dlmread('OUTPUT_Current0.07chi0g0.048chi0q0.2D-800gamma0.csv');
-    %nonlin25=dlmread('OUTPUT_Current0.07chi0g0.048chi0q0.2D-800gamma25.csv');
-    %nonlin50=dlmread('OUTPUT_Current0.07chi0g0.048chi0q0.2D-800gamma50.csv');
-    %nonlin75=dlmread('OUTPUT_Current0.07chi0g0.048chi0q0.2D-800gamma75.csv');
 
     span=20e-12;
     nr_samples_selection=ceil(span/dt); %ceil((10*pulsewidth*1e-12)/dt);
@@ -42,7 +40,7 @@ function [ selection, fit, t ] = extractpulse( signal )
     t_center=taxis(find(ysamples==max(ysamples)));
     P0=max(ysamples);
     ti=t_center;
-    fun=@(x,xdata) (P0*(sech((xdata-x(2))./x(1)).^2));
+    fun=@(x,xdata) (P0*(sech((xdata-x(2))./x(1)).^2)); %sech^2 fit
     x0=[0.5,ti];
     x=lsqcurvefit(fun,x0,xdata,ysamples);
     pulsewidth=1.763*x(1);

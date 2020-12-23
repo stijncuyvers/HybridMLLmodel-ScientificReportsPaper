@@ -11,15 +11,6 @@ function Prop=SSF(Signal_in,T_span,lambda0, L,betas,loss,n2,Aeff,MODEL_TPA_and_F
 % lengths
 % It is also possible to interpolate the data to match a power of 2 length,
 % but care should be taken not to distort phase and or amplitude
-%tic
-
-showevolution=0; % DEBUGGING, show pulse evolution
-
-global Nc
-global Nc_avg
-
-%global Nc_monitor
-%global counter
 
 % -- ARGUMENTS --
 % Signal_in: input signal
@@ -30,6 +21,14 @@ global Nc_avg
 % loss: linear losses
 % n2: nonlinear Kerr nonlinearity [m^2/W]
 % Aeff: effective mode area [m^2]
+
+showevolution=0; % DEBUGGING purposes, show pulse evolution
+
+global Nc
+global Nc_avg
+
+%global Nc_monitor
+%global counter
 
 % --- PARAMETERS ---
 c       = 3e8;      % speed of light [m/s]
@@ -49,8 +48,6 @@ sigma = 1.45e-21;           % Free carrier absorption [m^2]
 kc = 1.35e-27;              % Free carrier dispersion [m^3]
 mu = 2*kc*2*pi/lambdap/sigma;
 
-% NEEDS TO BE ADDRESSED IN FUTURE: NO 'RESET' BETWEEN PULSES (RECOVERY TIME
-% SLOW COMPARED TO PULSE REP RATE)
 tau = 1e-9;                 % Free carrier lifetime [s]
 planck = 6.626e-34;
 D = 2*pi*btpa/(2*planck*w0*Aeff^2);
@@ -82,10 +79,6 @@ om = fftshift(2*pi*f.');
 
 % input signal
 E = Signal_in;
-
-% Nc: TPA-generated free-carrier density
-%Nc = E.*0; %%%%% initialisation Nc;
-
 
 % %%%%%%%%%%%%% Dispersion %%%%%%%%%%%%%%%%
 B = 0;
@@ -126,14 +119,13 @@ for k=1:npas,
     TI = ifft(abs(U1).^2); int1 = (1-fr)*abs(U1).^2+dt*fr*fft(RW.*TI);
     Nd = U1.*int1;
     U1 = U0+ h*1i*gamma*U1.*(int1-int0)-h*gamma/w0*(Nd(idxp)-Nd(idxm))/(2*dt);
-    %U1 = U0;
     E  = U1.*exp(1i*gamma*h*int0);
     E = E.';
     
   
   %%%%%%%%%%%%%%%% carrier density %%%%%%%%%%%%%%%%%%%%%%      
     
-   %Nc(2:npt)=(Nc(1:npt-1)).*exp(-dt/tau)+(1-exp(-dt/tau)).*tau*D*abs(E(2:npt)).^4;
+   % updated outside loop, average carrier density is employed 
     
   %%%%%%%%%%%%%%%%%%% losses %%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
   if MODEL_TPA_and_FCA~=0  
@@ -183,7 +175,7 @@ end
 
 
 Prop=E;
-%toc
+
 end
 
 

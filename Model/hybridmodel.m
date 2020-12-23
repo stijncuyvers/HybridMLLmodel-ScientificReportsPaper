@@ -6,28 +6,26 @@
 
 % Hybrid simulation model:
 % - Traveling-wave model for active semiconductor sections
-%    (based on paper "Numerical Study of Dynamical Regime 
+%    (similar to paper "Numerical Study of Dynamical Regime 
 % ... in a Monolithic Passively Mode-Locked Semiconductor Laser" 
 % ... from A. G. Vladimirov + papers from Javaloyes et al. and Agrawal et al.)
 % - Split-step Fourier method for passive laser cavity
 
 % ===============================================================
 
-%clear all
+clear all
 close all
 
-global Nc
-global Nc_avg
-global Nc_monitor
-global counter
-
-Nc=0;
-Nc_avg=0;
-%counter=1;
-%Nc_monitor=zeros(1,n_o_timesteps);
 
 % ---------------------------------------------------------------
 %% === Parameters ===
+% global parameters used for Free-carrier absorption modeling
+global Nc
+global Nc_avg
+
+Nc=0;
+Nc_avg=0;
+
 % -- Physical parameters --
 lambda0=1.57*1e-6;              % wavelength [m]
 c=3*1e8;                        % speed of light [m/s]
@@ -45,12 +43,12 @@ kappa_1=0.5;                    % reflectivity left mirror
 kappa_2=0.99;                   % reflectivity right mirror
 
 % -- Gain parameters --
-gamma_g=10^9;                 % carrier relax. rate gain section, [s^-1] 
-chi0g=0.070;                   % material gain constant
+gamma_g=10^9;                   % carrier relax. rate gain section, [s^-1] 
+chi0g=0.070;                    % material gain constant
 beta_g=2.56*10^11;              % linear internal losses gain section, [s^-1]
 lg=850*1e-6;                    % length of gain section [m]
 %**********
-%Ig=45*1e-3;                     % injection current gain section [A]
+Ig=45*1e-3;                     % injection current gain section [A]
 %**********
 Vg=7.56*1e-17;                  % active volume of gain medium [m^3]
 omegag_g=0;                     % bandgap offset (rad s^-1)
@@ -60,7 +58,7 @@ intrabandrelax_g=4*1e12;        % intraband relaxation rate (s^-1)
 % -- Absorber parameters --
 gamma_q=10^11;                  % carrier relax. rate absorber section, [s^-1]
 beta_q=2.56*10^11;              % linear internal loss absorber section, [s^-1]
-chi0q=0.48;                      % material absorption constant 0.35
+chi0q=0.48;                     % material absorption constant 0.35
 lq=60*1e-6;                     % length of absorber section [m]
 alpha_q=0;                      % linewidth enhancement factor absorber, not used 
 Vq=Vg*(lq/lg);                  % active volume of absorber medium [m^3]
@@ -82,10 +80,10 @@ intrabandrelax_iso=8*1e12;      % intraband relaxation rate (s^-1)
 lp=14*1e-3;                                                             % length of passive section [m]
 loss_passive= 0.7*1e2;                                                  % time-independent loss [dB/m]
 
-beta2=1.3e-24; % [s^2/m], positive means normal dispersion, negative anomalous
-beta3=0.0042e-36; % [s^3/m], third  order dispersion
+beta2=1.3e-24;                                                          % [s^2/m], positive means normal dispersion, negative anomalous
+beta3=0.0042e-36;                                                       % [s^3/m], third  order dispersion
 betas_passive=[beta2 beta3];
-%n2=5*1e-18;                                                           % nonlinear coefficient n2 [m^2/W] (according to PhD Bart:  n2=6e-18 m^2/W)
+n2=5*1e-18;                                                             % nonlinear coefficient n2 [m^2/W] (according to PhD Bart:  n2=6e-18 m^2/W)
 Aeff=0.29*1e-12;                                                        % effective mode area [m^2]
 gamma_passive=n2*(2*pi/lambda0)/Aeff;                                   % Kerr nonlinearity parameter gamma [1/ (W*m)]
 
@@ -93,7 +91,7 @@ MODEL_TPA_and_FCA=1;
 MODEL_RAMAN=0;
 
 % -- Discretization --
-dt=20*1e-15;                                % time step [s] (Recommended stepsize: <40fs for convergence)
+dt=40*1e-15;                                % time step [s] (Recommended stepsize: <40fs for convergence)
 dz=dt;                                      % space step [s] (Courant–Friedrichs–Lewy condition)
 sim_time=100*1e-9;                          % total simulation time [s]
 L=lq+l_iso+lg+lp;                           % total length [m]
@@ -300,6 +298,7 @@ for i=2:n_o_timesteps
     end
     
     % Check if Reservoir is full
+    % ---- SPLIT-STEP FOURIER /  ---
     if Reservoir_counter==Reservoir_capacity
         % reservoir full - select segment for split-step propagation    
         if any(isnan(Reservoir))
@@ -515,13 +514,6 @@ for i=2:n_o_timesteps
     % Original: temp_factor=(log(1+1i*(N(mod(i,2)+1,1:n_o_spacesteps-1)))+log(1+1i*(N(mod(i,2)+1,2:n_o_spacesteps)))-log((intrabandrelax(1:n_o_spacesteps-1)+1i*omegat(1:n_o_spacesteps-1))./intrabandrelax(1:n_o_spacesteps-1)));
     
     temp_factor=2*log(1+1i*(N(mod(i,2)+1,1:n_o_spacesteps-1))./(1-1i*omegag(1:n_o_spacesteps-1)./intrabandrelax(1:n_o_spacesteps-1)))-log(1-omegat(1:n_o_spacesteps-1)./(omegag(1:n_o_spacesteps-1)+1i*intrabandrelax(1:n_o_spacesteps-1)));
-    
-    % components for temp calculation
-    %log(1+1i*(N(mod(i,2)+1,1:n_o_spacesteps-1))./(1-1i*omegag(1:n_o_spacesteps-1)./intrabandrelax(1:n_o_spacesteps-1)))
-    %log(1+1i*(N(mod(i,2)+1,2:n_o_spacesteps))./(1-1i*omegag(2:n_o_spacesteps)./intrabandrelax(2:n_o_spacesteps)))
-    %log(1-omegat(1:n_o_spacesteps-1)./(omegag(1:n_o_spacesteps-1)+1i*intrabandrelax(1:n_o_spacesteps-1)))
-    %log(1-omegat(2:n_o_spacesteps)./(omegag(2:n_o_spacesteps)+1i*intrabandrelax(2:n_o_spacesteps)))
-    
     Af(2-mod(i,2),2:n_o_spacesteps)=Af(mod(i,2)+1,1:n_o_spacesteps-1).*betas(1:n_o_spacesteps-1).*exp(-const1.*Chis(1:n_o_spacesteps-1).*temp_factor);
     % update backward propagating field
     Ab(2-mod(i,2),1:n_o_spacesteps-1)=Ab(mod(i,2)+1,2:n_o_spacesteps).*betas(2:n_o_spacesteps).*exp(-const1.*Chis(2:n_o_spacesteps).*temp_factor);
@@ -533,6 +525,9 @@ for i=2:n_o_timesteps
     % boundary conditions
     if i>n_o_filtersamples
         Af(2-mod(i,2),1)=sqrt(kappa_1)*dt*sum(filter.*(Abpos1));
+        
+        % TEST (can be ignored)
+        % plan to use distributed filter instead of single filter (future work)
         %x1=[filter zeros(1,length(Abpos1)-1)];
         %y1=[flip(Abpos1) zeros(1,length(filter)-1)];
         
@@ -550,6 +545,9 @@ for i=2:n_o_timesteps
         %}
     else
         Af(2-mod(i,2),1)=sqrt(kappa_1)*dt*sum(filter.*(Abpos1(1:i)));
+        
+        % TEST (can be ignored)
+        % plan to use distributed filter instead of single filter (future work)
         %x1=[filter zeros(1,length(Abpos1(1:i))-1)];
         %y1=[flip(Abpos1(1:i)) zeros(1,length(filter)-1)];
         
@@ -661,6 +659,7 @@ legend('SOA','SA','ISO');
 title('Normalized carrier densities at the center of each section', 'FontSize', Fontsize);
 if SAVEFIGURES==1 saveas(gcf,[figurename,'_6','.png']); end;
 
+% Plot spectrum
 %{
 % spectrum
 [ validdata, lambdas, spectrum, lambdas_envelope, envelope, lambdas_phase, phases ] = getspectrum( OUTPUTmonitor, lambda0, dt );

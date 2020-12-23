@@ -1,12 +1,12 @@
 # HybridMLLmodel
 Hybrid mode-locked laser model, combining a traveling-wave model with a split-step Fourier method for fast and accurate
 
--- Scientific Reports -- \\
+-- Scientific Reports -- <br />
 Title: Hybrid model for semiconductor-based mode-locked lasers with cavity dispersion and nonlinearity, 
 Authors: Stijn Cuyvers, Stijn Poelman, Kasper Van Gasse, and Bart Kuyken
 
 
--- Outline --
+-- Outline -- <br />
 Semiconductor-based mode-locked lasers, integrated sources enabling the generation of coherent ultra-short optical pulses,
 are important for a wide range of applications, including datacom, optical ranging and spectroscopy. As their performance
 remains largely unpredictable due to the lack of commercial design tools and the poorly understood mode-locking dynamics,

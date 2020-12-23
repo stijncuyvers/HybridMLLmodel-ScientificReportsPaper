@@ -1,8 +1,8 @@
 # HybridMLLmodel
-Hybrid mode-locked laser model, combining a traveling-wave model with a split-step Fourier method for fast and accurate
+Hybrid mode-locked laser model, combining a traveling-wave model with a split-step Fourier method for fast and accurate 
 
 -- Scientific Reports -- <br />
-Title: Hybrid model for semiconductor-based mode-locked lasers with cavity dispersion and nonlinearity, 
+Title: Hybrid model for semiconductor-based mode-locked lasers with cavity dispersion and nonlinearity <br />
 Authors: Stijn Cuyvers, Stijn Poelman, Kasper Van Gasse, and Bart Kuyken
 
 

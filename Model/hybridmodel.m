@@ -88,10 +88,10 @@ Aeff=0.29*1e-12;                                                        % effect
 gamma_passive=n2*(2*pi/lambda0)/Aeff;                                   % Kerr nonlinearity parameter gamma [1/ (W*m)]
 
 MODEL_TPA_and_FCA=1;
-MODEL_RAMAN=0;
+MODEL_RAMAN=1;
 
 % -- Discretization --
-dt=40*1e-15;                                % time step [s] (Recommended stepsize: <40fs for convergence)
+dt=20*1e-15;                                % time step [s] (Recommended stepsize: <40fs for convergence)
 dz=dt;                                      % space step [s] (Courant–Friedrichs–Lewy condition)
 sim_time=100*1e-9;                          % total simulation time [s]
 L=lq+l_iso+lg+lp;                           % total length [m]
@@ -139,7 +139,7 @@ display(['Number of roundtrips simulating: ',num2str(floor(sim_time/RT))])
 display(['SOA injection current [mA]: ' num2str(Ig*1e3)])
 timertot=0; % timer
 
-figurename=['MLLsim_','Current_',num2str(Ig*1000),'X0g_',num2str(chi0g),'X0q_',num2str(chi0q),'beta2_',num2str(beta2*1e24),'beta3_',num2str(beta3*1e36),'gamma_',num2str(gamma_passive),'TPAandFCA_',num2str(MODEL_TPA_and_FCA),'RAMAN_',num2str(MODEL_RAMAN)];
+figurename=['MLLsim_','Current_',num2str(Ig*1000),'X0g_',num2str(chi0g),'X0q_',num2str(chi0q),'beta2_',num2str(beta2*1e24),'beta3_',num2str(beta3*1e36),'gamma_',num2str(gamma_passive),'TPAandFCA_',num2str(MODEL_TPA_and_FCA),'RAMAN_',num2str(MODEL_RAMAN),'dt_',num2str(dt)];
 filename=[figurename,'.txt'];
 fid=fopen(filename,'w');
 fprintf(fid, [ '-----------------------------------------------------------------------------------', '\n']);
@@ -327,6 +327,9 @@ for i=2:n_o_timesteps
         cellgrid=zeros(1,100);
         tot_energy=sum(Aqw.*abs(Reservoir).^2);
         step=round(Reservoir_capacity/100);
+        if 99*step>Reservoir_capacity
+            step=floor(Reservoir_capacity/100);
+        end
         for m=1:99
             cellgrid(m)=sum(Aqw.*abs(Reservoir(1+(m-1)*step:m*step)).^2);
         end
@@ -468,7 +471,7 @@ for i=2:n_o_timesteps
                 Propagated_field=sqrt(kappa_2).*SSF(Reservoir(1:min_pos).*sqrt(Aqw),Tspan,lambda0,2*lp,betas_passive,loss_passive,n2,Aeff,MODEL_TPA_and_FCA,MODEL_RAMAN);
             else
                 Propagated_field=sqrt(kappa_2).*SSF(Reservoir(1:min_pos).*sqrt(Aqw),Tspan,lambda0,lp,betas_passive,loss_passive,n2,Aeff,MODEL_TPA_and_FCA,MODEL_RAMAN);
-                Propagated_field=SSF(Propagated_field,Tspan,lambda0,lp,betas_passive,loss_passive,n2,Aeff,MODEL_TPA_and_FCA,MODEL_RAMAN); 
+                Propagated_field=SSF(Propagated_field,Tspan,lambda0,lp,betas_passive,loss_passive,n2,Aeff,MODEL_TPA_and_FCA,MODEL_RAMAN,SSFstep); 
             end
             Propagated_field=Propagated_field./sqrt(Aqw); % convert to Watt/m^2 again
             

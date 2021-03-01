@@ -1,7 +1,6 @@
 % ===============================================================
 %  FUNCTION: Split-step Fourier waveguide propagation
 %  Release year: 2020
-%  Author: Stijn Cuyvers
 %  Affiliation: Photonics Research Group, Ghent University - imec, Belgium
 % ===============================================================
 
@@ -12,6 +11,9 @@ function Prop=SSF(Signal_in,T_span,lambda0, L,betas,loss,n2,Aeff,MODEL_TPA_and_F
 % It is also possible to interpolate the data to match a power of 2 length,
 % but care should be taken not to distort phase and or amplitude
 
+
+%disp(['Split-step window size: ',num2str(T_span*1e12), ' ps']);
+
 % -- ARGUMENTS --
 % Signal_in: input signal
 % T_span: corresponding time grid
@@ -21,8 +23,8 @@ function Prop=SSF(Signal_in,T_span,lambda0, L,betas,loss,n2,Aeff,MODEL_TPA_and_F
 % loss: linear losses
 % n2: nonlinear Kerr nonlinearity [m^2/W]
 % Aeff: effective mode area [m^2]
-
-showevolution=0; % DEBUGGING purposes, show pulse evolution
+% MODEL_TPA_and_FCA: model TPA and FCA
+% MODEL_RAMAN: include Raman effect
 
 global Nc
 global Nc_avg
@@ -34,6 +36,7 @@ global Nc_avg
 c       = 3e8;      % speed of light [m/s]
 lambdap = lambda0;  % wavelength [m]
 npas    = 100;     % number of steps == NEEDS OPTIMIZATION ==
+
 w0 = (2.0*pi*c)/lambdap;    % ref frequency
 btpa = 6e-12; %0.8e-12;             % beta_TPA [m/W] (two-photon absorption parameter)
 k0 = 2*pi/(lambdap);        
@@ -52,129 +55,83 @@ tau = 1e-9;                 % Free carrier lifetime [s]
 planck = 6.626e-34;
 D = 2*pi*btpa/(2*planck*w0*Aeff^2);
 
-
 original_length=size(Signal_in,2);
-npt=original_length;
-t = linspace(-T_span/2,T_span/2,original_length);                 % time grid [ps]
-dt = t(2)-t(1);                                                             % time grid spacing [ps]
-f = (-original_length/2:original_length/2-1)/(original_length*dt);     % angular frequency deviation from w0 [10^12 rad/s]
-
-
-lambda = c./(c/lambdap+f);
-
+nTime=original_length;
 alpha = log(10.^(loss/10));     % attenuation coefficient
-
-h       = L/npas;               % propagation step
-
-lambdadisp = [1200 3300];       % wavelength range for plot
-lambdaidx  = find((lambda*1e9>=lambdadisp(1)) & (lambda*1e9<=lambdadisp(2)));
-
+step      = L/npas;               % propagation step
+T = linspace(-T_span/2,T_span/2,nTime);     % time grid
+dT = T_span/nTime;                          % time grid spacing [ps]
+V = 2*pi*(-nTime/2:nTime/2-1)/T_span;       % angular frequency deviation from w0 [10^12 rad/s]%
 
 
-
+if step>200e-6
+   % require minimum stepsize of 200 microns
+   step=200e-6;
+   npas=round(L/step);
+end
+  
 
 %% ----------------------------------------------------------------------
 
-om = fftshift(2*pi*f.');
 
 % input signal
-E = Signal_in;
+A = Signal_in;
 
-% %%%%%%%%%%%%% Dispersion %%%%%%%%%%%%%%%%
-B = 0;
-for i = 1:size(betas,2)        % Taylor expansion of betas
-B = B + betas(i)/factorial(i+1).*om.^(i+1);
-end
-opdisp = exp(1i*h*B);
 
 %%%%%%%%%%%%% Raman response %%%%%%%%%%%%%%%%
-wr = 15.6e12*2*pi;
-dw = 105e9*pi;
-gRmax = 1.5e-10; %m/W
-fr = gRmax*dw/(wr*k0*n2); % see Nonlinear optical phenomena in silicon waveguides: modeling and applications
+wr = 15.6e12*2*pi; % Raman shift (wr/2pi=15.6 THz), denoted as OMEGA_R
+dw = 105e9*pi; % Raman gain bandwidth (more precisely: dw/pi=FWHM of the Raman-gain spectrum), denoted as GAMMA_R
+gRmax = 1.5e-10; %m/W % Raman gain coefficient
+fR = gRmax*dw/(wr*k0*n2); % see Nonlinear optical phenomena in silicon waveguides: modeling and applications
 if MODEL_RAMAN==0
-    fr = 0;
+    fR = 0;
 end
 
-RW = wr^2./(wr^2-om.^2-2*1i.*om*dw);
-RT = real(fft(RW));
-RT = RT/(trapz(t,RT));
-RW = npt*ifft(RT);
+% see Nonlinear optical phenomena in silicon waveguides: modeling and applications
+% Define Raman response
+tau1 = 1/sqrt(wr^2-dw^2); 
+tau2 = 1/dw; % Raman response function fitting parameters
+hR = (tau1^2+tau2^2)/(tau1*tau2^2) * exp(-T/tau2) .* sin(T/tau1);    % Raman time response fit
+hR(T<0) = 0;    % heaviside function for causality
+hR = hR/trapz(T,hR);    % normalize response function
 
 
-idxp = linspace(2,npt+1,npt);
-idxp(end) = 1;
-idxm = linspace(0,npt-1,npt);
-idxm(1)=npt;
+ % Define propagation constant
+B = 0;
+for i=1:length(betas)
+    B = B + betas(i)/factorial(i+1)*V.^(i+1);
+end
+% Define propagation operator in frequency domain
+Disp = fftshift(1i*B - alpha/2- sigma/2*(1+1i*mu)*Nc_avg);  % V=0 NOT central --> compatible for multiplication with fft(A)
 
-for k=1:npas,
-   
-  %%%%%%%%%%%%% nonlinear step (écrit par Stef (voir blow and wood))  %%%%%%%%%  
+% Iterate over fiber segments
+for i = 1:npas
+    % First dispersion + losses...
+    A = ifft(exp(step*Disp/2).*fft(A));
     
-    U0 = E.';
-    TI = ifft(abs(U0).^2);
-    int0 = (1-fr)*abs(U0).^2 + dt*fr*fft(RW.*TI);
-    Nd = U0.*int0;
-    U1 = U0-h/2*gamma/w0*(Nd(idxp)-Nd(idxm))/(2*dt);   % On est au 1/2 pas de RK
-    TI = ifft(abs(U1).^2); int1 = (1-fr)*abs(U1).^2+dt*fr*fft(RW.*TI);
-    Nd = U1.*int1;
-    U1 = U0+ h*1i*gamma*U1.*(int1-int0)-h*gamma/w0*(Nd(idxp)-Nd(idxm))/(2*dt);
-    E  = U1.*exp(1i*gamma*h*int0);
-    E = E.';
-    
-  
-  %%%%%%%%%%%%%%%% carrier density %%%%%%%%%%%%%%%%%%%%%%      
-    
-   % updated outside loop, average carrier density is employed 
-    
-  %%%%%%%%%%%%%%%%%%% losses %%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-  if MODEL_TPA_and_FCA~=0  
-    E = E.*exp(h*(-alpha/2 - sigma/2*(1+1i*mu)*Nc_avg));
-  else
-    E = E.*exp(h*(-alpha/2));  
-  end
-   %%%%%%%%%%%%%%%%% dispersion %%%%%%%%%%%%%%%%%%%%%%%
-   
-   E=fft(ifft(E).*opdisp.');
-   
-   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-   if showevolution~=0 && (mod(k,npas/100)==0),
-            
-       disp([num2str(k*h/L*100) '% completed' '      ' 'beta2=' num2str(betas(1)*1e24)])
- 
-       figure(9);
-       subplot(211); 
-       plot(t*1e12,abs(E).^2); set(gca,'ylim',[0 max(abs(E).^2)]);
-       set(gca,'xlim',[-1 1]);
-       xlabel('t [ps]'); ylabel('P (intracavity) [W]');
+    % ... then nonlinearity: Kerr effect operator + Raman contribution
+     K = 1i*gamma*((1-fR)*abs(A).^2 + fR*nTime*dT*fft(ifft(fftshift(hR)).*ifft(abs(A).^2)));
+     A = exp(step*K).*A;
+      
+    % ... and again dispersion + losses.
+    A = ifft(exp(step*Disp/2).*fft(A));   
+end
 
-       TEsh=fftshift(ifft(E));
-       Sp=abs(TEsh).^2;
-       mSp = max(Sp);
-       PSp = angle(TEsh);
-       
-       subplot(212); 
-       plot(lambda(lambdaidx)*1e9,10*log10(Sp(lambdaidx)./mSp));
-       xlabel('Wavelength [nm]'); ylabel('Spectrum');axis ([lambdadisp(1) lambdadisp(2) -30 0])
-       %set(gca,'ylim',[-300 0],'ytick',[-300:20:0]);
-       drawnow;
+% Note: for now an 'average' Nc is used, for more accurate results,
+% ...one could include a fitted model to more accurately capture the 
+% ...free-carrier density at each location of the waveguide
 
-   end;
-   
- 
-end;
-
-% update Nc
-AVG_N=floor((tau)/dt); % averaging time in n.o.samples
-for i=1:length(E)
-   Nc=Nc+dt*(D*abs(E(i))^4-Nc/tau);
+% update Nc 
+AVG_N=floor((tau)/dT); % averaging time in n.o.samples
+for i=1:length(A)
+   Nc=Nc+dT*(D*abs(A(i))^4-Nc/tau);
    Nc_avg=Nc_avg*(AVG_N-1)/AVG_N+Nc/AVG_N;
    %Nc_monitor(counter)=Nc_avg;
    %counter=counter+1;
 end
 
 
-Prop=E;
+Prop=A;
 
 end
 

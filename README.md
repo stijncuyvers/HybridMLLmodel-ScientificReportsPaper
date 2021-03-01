@@ -3,7 +3,7 @@ Hybrid mode-locked laser model, combining a traveling-wave model with a split-st
 
 -- Scientific Reports -- <br />
 Title: Hybrid model for semiconductor-based mode-locked lasers with cavity dispersion and nonlinearity <br />
-Authors: Stijn Cuyvers, Stijn Poelman, Kasper Van Gasse, and Bart Kuyken
+Authors: Stijn Cuyvers, Stijn Poelman, Kasper Van Gasse, and Bart Kuyken <br />
 Affiliation: Photonics Research Group of Ghent University - imec, Belgium
 
 
